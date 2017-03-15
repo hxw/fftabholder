@@ -8,7 +8,6 @@ import (
 	"time"
 )
 
-
 func main() {
 
 	server := &http.Server{
@@ -49,7 +48,7 @@ const (
 </body>
 </html>`
 
-	js =`
+	js = `
 function new_tab(url) {
     window.open(url, '_blank');
     return false;
@@ -112,7 +111,7 @@ func (f aHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.Write(icon)
 		return
 	}
-	str := html.EscapeString(r.URL.Path[1:])  // strip leading'/'
+	str := html.EscapeString(r.URL.Path[1:]) // strip leading'/'
 	doc := s1 + str + s2 + js + s3 + str + s4
 
 	fmt.Fprintln(w, doc)
