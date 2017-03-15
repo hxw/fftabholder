@@ -1,0 +1,22 @@
+#!/sbin/openrc-run
+
+: ${fftabholder_user:=www}
+
+BINARY=/usr/local/sbin/fftabholder
+#required_files=
+pidfile=/var/run/fftabholder.pid
+args="${fftabholder_args} --quiet"
+name="Icon for Firefox Tree-Style Tabs"
+
+depend()
+{
+	need localmount
+	before pcdm
+}
+
+start()
+{
+	ebegin "Starting ${name}"
+	start-stop-daemon --start --exec "${BINARY}" -m -p "${pidfile}" -u "${fftabholder_user}" -b -- ${args}
+	eend $?
+}
