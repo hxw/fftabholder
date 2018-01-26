@@ -12,9 +12,11 @@ INSTALL_PROGRAM = install
 all: ${PROGRAM}
 
 
-${PROGRAM}: main.go
+${PROGRAM}: main.go icons.go
 	go build .
 
+icons.go: mkicons.sh *.png
+	sh mkicons.sh *.png > icons.go
 
 .PHONY: install
 install: all

@@ -1,10 +1,14 @@
+// Copyright (c) 2015-2018, Christopher Hall
+// see: LICENSE
 package main
 
 import (
 	"fmt"
-	"html"
+	"html/template"
 	"log"
 	"net/http"
+	"regexp"
+	"strings"
 	"time"
 )
 
@@ -27,28 +31,12 @@ func pageHandler() http.Handler {
 	return &aHandler{}
 }
 
-const (
-	s1 = `<!DOCTYPE html>
+const htmlPage = `<!DOCTYPE html>
 <html>
 <head><meta charset="UTF-8">
-<title>`
-	s2 = `</title>
-<link rel="shortcut icon" href="/favicon.png" />
+<title>{{ .Title }}</title>
+<link rel="shortcut icon" href="/icon/{{ .Icon }}.png" />
 <script type="text/javascript">
-`
-	s3 = `</script></head>
-<body><h1>`
-	s4 = `</h1>
-<form onsubmit="return do_link();">
-<input name="url" id="the-url" size="60">
-<br />
-<br />
-<a href="/New%20Tab" onclick="return do_link();" target="_blank">New Tab</a>
-</form>
-</body>
-</html>`
-
-	js = `
 function new_tab(url) {
     window.open(url, '_blank');
     return false;
@@ -67,10 +55,28 @@ function do_link() {
     }
     return false;
 }
+</script>
+</head>
+<body>
+  <h1>{{ .Title }}</h1>
+  <form onsubmit="return do_link();">
+    <input name="url" id="the-url" size="60">
+    <br />
+    <br />
+    <a href="/New%20Tab" onclick="return do_link();" target="_blank">New Tab</a>
+  </form>
+</body>
+</html>
 `
-)
 
-var icon = []byte{
+type data struct {
+	Title string
+	Icon  string
+}
+
+var tp = template.Must(template.New("page").Parse(htmlPage))
+
+var iconTick = []byte{
 	0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44, 0x52,
 	0x00, 0x00, 0x00, 0x40, 0x00, 0x00, 0x00, 0x40, 0x08, 0x02, 0x00, 0x00, 0x00, 0x25, 0x0b, 0xe6,
 	0x89, 0x00, 0x00, 0x00, 0x09, 0x70, 0x48, 0x59, 0x73, 0x00, 0x00, 0x0b, 0x13, 0x00, 0x00, 0x0b,
@@ -101,6 +107,8 @@ var icon = []byte{
 	0x44, 0xae, 0x42, 0x60, 0x82,
 }
 
+var iconRegexp = regexp.MustCompilePOSIX("^/icon/(.+)[.]png$")
+
 func (f aHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	//fmt.Printf("req: %v\n", r)
@@ -108,11 +116,29 @@ func (f aHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	if "/favicon.png" == r.URL.Path || "/favicon.ico" == r.URL.Path {
 		r.Header.Add("Content-Type", "image/png")
-		w.Write(icon)
+		w.Write(iconTick)
+		return
+	} else if strings.HasPrefix(r.URL.Path, "/icon/") {
+		r.Header.Add("Content-Type", "image/png")
+		m := iconRegexp.FindStringSubmatch(r.URL.Path)
+		if len(m) > 1 {
+			if icon, ok := icons[m[1]]; ok {
+				w.Write(icon)
+				return
+			}
+		}
+		w.Write(iconTick)
 		return
 	}
-	str := html.EscapeString(r.URL.Path[1:]) // strip leading'/'
-	doc := s1 + str + s2 + js + s3 + str + s4
 
-	fmt.Fprintln(w, doc)
+	str := r.URL.Path[1:] // strip leading '/'
+
+	d := data{
+		Title: str,
+		Icon:  strings.ToLower(str[0:1]),
+	}
+	err := tp.Execute(w, d)
+	if nil != err {
+		fmt.Printf("error: %s\n", err)
+	}
 }
